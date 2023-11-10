@@ -179,9 +179,10 @@ int main(int argc, char **argv) {
   /*----------------ENCODER-----------------------*/
   /*----------------------------------------------*/
   /*To read the input text file, you might want to use a code as follows*/
-  char *inputTextFilePath = argv[1];
-  char *codeTableFilePath = argv[2];
-  char *encodeFilePath = argv[3];
+  char* is_encode = argv[1];
+  char *inputTextFilePath = argv[2];
+  char *codeTableFilePath = argv[3];
+  char *encodeFilePath = argv[4];
   FILE *inputFile = fopen(inputTextFilePath, "r");
   if (inputFile == NULL) {
     printf("Could not open file to read: %s\n", inputTextFilePath);
