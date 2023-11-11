@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -129,7 +130,7 @@ void build_table(Node *node, Code *codeTable, char *string, int depth) {
     char *new_string = (char *)malloc(sizeof(char) * (depth + 2));
     int tracker = 0;
     for (int i = 0; i < depth; i++) {
-        new_string[i] = string[i];
+      new_string[i] = string[i];
     };
     new_string[depth] = '0';
     new_string[depth + 1] = '\0';
@@ -140,7 +141,7 @@ void build_table(Node *node, Code *codeTable, char *string, int depth) {
     char *new_string = (char *)malloc(sizeof(char) * (depth + 2));
     int tracker = 0;
     for (int i = 0; i < depth; i++) {
-        new_string[i] = string[i];
+      new_string[i] = string[i];
     };
     new_string[depth] = '1';
     new_string[depth + 1] = '\0';
@@ -149,7 +150,7 @@ void build_table(Node *node, Code *codeTable, char *string, int depth) {
   }
 }
 
-void write_table(FILE* fp, Node *node, Code*table) {
+void write_table(FILE *fp, Node *node, Code *table) {
   if (node == NULL) {
     return;
   }
@@ -157,12 +158,50 @@ void write_table(FILE* fp, Node *node, Code*table) {
   Node *right = node->right;
   write_table(fp, left, table);
   if (left && left->letter != '\0') {
-    fprintf(fp, "%c\t%s\t%d\n", left->letter, table[left->letter].binary_code, left->freq);
+    fprintf(fp, "%c\t%s\t%d\n", left->letter, table[left->letter].binary_code,
+            left->freq);
   }
   write_table(fp, right, table);
   if (right && right->letter != '\0') {
-    fprintf(fp, "%c\t%s\t%d\n", right->letter, table[right->letter].binary_code, right->freq);
+    fprintf(fp, "%c\t%s\t%d\n", right->letter, table[right->letter].binary_code,
+            right->freq);
   }
+}
+
+char *append_char(char *string, char c) {
+  size_t length = strlen(string);
+  char *new_string = (char *)malloc(sizeof(char) * (length + 2));
+  for (int i = 0; i < length; i++) {
+    new_string[i] = string[i];
+  };
+  new_string[length] = c;
+  new_string[length + 1] = '\0';
+  // free(string);
+  return new_string;
+}
+
+char write_decode(char string, Node *node, FILE *fp) {
+  if (node == NULL) {
+    return '\0';
+  }
+  if (string == '0') {
+    Node *left = node->left;
+    if (left->left) {
+      char c1 = fgetc(fp);
+      return write_decode(c1, node->left, fp);
+    } else {
+      return left->letter;
+    }
+  } else if (string == '1') {
+    Node *right = node->right;
+    if (right->left) {
+      char c1 = fgetc(fp);
+      return write_decode(c1, node->right, fp);
+    } else {
+      return right->letter;
+    }
+  }
+  return '\0';
 }
 
 int main(int argc, char **argv) {
@@ -179,7 +218,83 @@ int main(int argc, char **argv) {
   /*----------------ENCODER-----------------------*/
   /*----------------------------------------------*/
   /*To read the input text file, you might want to use a code as follows*/
-  char* is_encode = argv[1];
+  char *encode = argv[1];
+  int is_encode;
+  if (!strcmp(encode, "encode")) {
+    is_encode = 1;
+  } else if (!strcmp(encode, "decode")) {
+    is_encode = 0;
+    char *code_table_path = argv[2];
+    char *encoded_text_path = argv[3];
+    char *decoded_text_path = argv[4];
+    FILE *code_table_text = fopen(code_table_path, "r");
+    char c;
+    int cnt = 0;
+    unsigned int freq = 0;
+    int factor = 1;
+    char letter;
+    char *code = (char *)malloc(sizeof(char) * 1);
+    Code *codeTable = (Code *)malloc(sizeof(Code) * 256);
+    int num = 0;
+    // set counters to zero initially
+    for (int i = 0; i < 256; i++) {
+      codeTable[i].freq = 0;
+      codeTable[i].binary_code = "";
+    }
+    while ((c = fgetc(code_table_text)) != EOF) {
+      if (c == '\t') {
+        cnt++;
+        continue;
+      } else if (c == '\n') {
+        cnt = 0;
+        factor = 1;
+        codeTable[letter].freq = freq;
+        codeTable[letter].binary_code = code;
+        freq = 0;
+      } else {
+        if (cnt == 0) {
+          num++;
+          letter = c;
+        } else if (cnt == 1) {
+          code = append_char(code, c);
+        } else if (cnt == 2) {
+          freq *= factor;
+          freq += c - 48;
+          factor *= 10;
+        }
+      }
+    }
+    Heap *heap = init_heap(num);
+    for (int i = 0; i < 256; i++) {
+      if (codeTable[i].freq > 0) {
+        Node *node = init_node((char)i, codeTable[i].freq);
+        insert(heap, node);
+      }
+    }
+    while (heap->size > 1) {
+      Node *min1 = heap->array[0];
+      delete_min(heap);
+      Node *min2 = heap->array[0];
+      delete_min(heap);
+      Node *node = init_node('\0', min1->freq + min2->freq);
+      node->left = min1;
+      node->right = min2;
+      insert(heap, node);
+    }
+    Node *root = heap->array[0];
+    FILE *decoded_text = fopen(decoded_text_path, "w");
+    FILE *encoded_text = fopen(encoded_text_path, "r");
+    while ((c = fgetc(encoded_text)) != EOF) {
+      char p = write_decode(c, root, encoded_text);
+      fprintf(decoded_text, "%c", p);
+    }
+    fclose(decoded_text);
+    fclose(encoded_text);
+    return 1;
+  } else {
+    printf("Unknown command for encode");
+    return -1;
+  }
   char *inputTextFilePath = argv[2];
   char *codeTableFilePath = argv[3];
   char *encodeFilePath = argv[4];
@@ -220,12 +335,8 @@ int main(int argc, char **argv) {
       insert(heap, node);
     }
   }
-  int size = heap->size;
-  for (int i = 0; i < size; i++) {
+  while (heap->size > 1) {
     Node *min1 = heap->array[0];
-    if (min1->freq >= totalNumOfCharacters) {
-      break;
-    }
     delete_min(heap);
     Node *min2 = heap->array[0];
     delete_min(heap);
@@ -253,8 +364,10 @@ int main(int argc, char **argv) {
     printf("Could not open file to write: %s\n", encodeFilePath);
     return -1;
   }
-  for (int i = heap->size - 1; i >=0; i--) {
-    fprintf(code_table_fp, "%c\t%s\t%d\n", heap->array[i]->letter, codeTable[heap->array[i]->letter].binary_code, heap->array[i]->freq);
+  for (int i = heap->size - 1; i >= 0; i--) {
+    fprintf(code_table_fp, "%c\t%s\t%d\n", heap->array[i]->letter,
+            codeTable[heap->array[i]->letter].binary_code,
+            heap->array[i]->freq);
   }
   fclose(code_table_fp);
   inputFile = fopen(inputTextFilePath, "r");
@@ -288,7 +401,8 @@ int main(int argc, char **argv) {
   // bits\n", compressed_size); //assuming that you store the number of bits
   // (i.e., 0/1s) of encoded text in variable "compressed_size"
   printf("Compression Ratio: %.2f%%\n",
-  (float)totalNumOfCharacters2/((float)totalNumOfCharacters*8)*100); //This line will print
+         (float)totalNumOfCharacters2 / ((float)totalNumOfCharacters * 8) *
+             100); // This line will print
   // the compression ration in percentages, up to 2 decimals.
 
   /*----------------------------------------------*/
